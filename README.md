@@ -1,6 +1,6 @@
 #TP_M2_MIAGE_IPM_DOCKER_AB
 
-Exercice 3 : Manipulation de base des conteneurs
+## Exercice : Manipulation de base des conteneurs
 Étapes :
 1. Vérifiez la version de Docker :
  docker --version
@@ -80,7 +80,7 @@ Deleted: sha256:c567b231f65614688711a75f31518a064258a51d442117a3e771a3a8fdba78ef
 
 
 
-4. Exercice : Création d'un serveur web avec Docker
+## Exercice : Création d'un serveur web avec Docker
 
 1. Téléchargez l'image officielle Nginx :
  docker pull nginx
@@ -118,3 +118,58 @@ c08098db8228   nginx     "/docker-entrypoint.…"   53 seconds ago   Up 53 secon
 
 6. Supprimez le conteneur :
  docker rm mon_nginx
+
+
+---
+
+## Exercice 5 : Déploiement d'une application Flask
+
+### Fichiers
+
+- `app.py` : application Flask minimale. La route `/` renvoie `<p>Hello, World!</p>`. Le client MongoDB est créé avec `MongoClient("mongodb://mongo:27017/")`, base `ex5Flask`.
+- `requirements.txt` : dépendances Python (`flask`, `pymongo`).
+- `Dockerfile` : construction de l'image de l'application.
+- `.dockerignore` : fichiers exclus du contexte de build (`.git`, `.env`, `venv/`, `.venv/`, `*.pyc`, `__pycache__/`, `Dockerfile`, `.dockerignore`).
+- `.gitignore` : fichiers non suivis par Git.
+
+### Dockerfile
+
+```dockerfile
+FROM python:3.8
+WORKDIR /app
+EXPOSE 5000
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+COPY . .
+CMD ["python", "-m", "flask", "run", "--host=0.0.0.0", "--port=5000"]
+```
+
+- `FROM python:3.8` : image de base contenant Python 3.8.
+- `WORKDIR /app` : dossier de travail dans le conteneur.
+- `EXPOSE 5000` : documente le port utilisé par l'application
+- `COPY requirements.txt .` puis `RUN pip install` : les dépendances sont installées avant la copie du code. Docker peut ainsi réutiliser le cache de cette couche quand seul `app.py` change.
+- `COPY . .` : copie le code de l'application dans l'image.
+- `--host=0.0.0.0` : Flask écoute sur toutes les interfaces. Sans cette option, l'application ne serait accessible qu'à l'intérieur du conteneur.
+
+### Construction et lancement
+
+```
+docker build -t app-flask .
+docker run -d -p 5000:5000 --name app_flask app-flask
+```
+
+Test : ouvrir http://localhost:5000 dans le navigateur. La page affiche `Hello, World!`.
+
+---
+
+## Exercice 6 : Déploiement avec docker-compose
+
+### Fichier docker-compose.yml
+
+Le fichier déclare deux services :
+
+- `app` : image construite à partir du `Dockerfile` (`build: .`), port 5000 publié, `restart: always`, démarré après `mongo` (`depends_on`), variable `MONGO_URI=mongodb://mongo:27017/`.
+- `mongo` : image officielle `mongo:latest`, port 27017 publié, volume nommé `mongo_data` monté sur `/data/db` pour conserver les données de la base.
+
+Dans un réseau compose, les services se joignent par leur nom. L'application atteint donc MongoDB à l'adresse `mongo`. Depuis le conteneur de l'application, pymongo se connecte à mongo:27017 et reçoit
+ {'ok': 1.0}.
